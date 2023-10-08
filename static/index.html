@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Speedtest</title>
+    <style type="text/css">
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            border: none;
+            text-align: center;
+        }
+        div.test {
+            display: inline-block;
+            margin: 1em;
+            text-align: center;
+        }
+        div.testName,
+        div.meterUnit {
+            font-size: 3vw;
+        }
+        div.meter {
+            font-size: 6vw;
+            line-height: 1.5em;
+            height: 1.5em !important;
+        }
+        .flash {
+            animation: flash 0.6s linear infinite;
+        }
+        @keyframes flash {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Speedtest</h1>
+    <div class="test">
+        <div class="testName">Download</div>
+        <div class="meter">&nbsp;<span id="download"></span>&nbsp;</div>
+        <div class="meterUnit">Mbit/s</div>
+    </div>
+    <div class="test">
+        <div class="testName">Latency</div>
+        <div class="meter">&nbsp;<span id="ping"></span>&nbsp;</div>
+        <div class="meterUnit">ms</div>
+    </div>
+    <div class="test">
+        <div class="testName">Jitter</div>
+        <div class="meter">&nbsp;<span id="jitter"></span>&nbsp;</div>
+        <div class="meterUnit">ms</div>
+    </div>
+    <div id="ip"></div>
+    <script type="text/javascript">
+        function getParameterByName(name, url) {
+            if (!url) url = window.location.href;
+            name = name.replace(/[\[\]]/g, '\\$&');
+            var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+                results = regex.exec(url);
+            if (!results) return null;
+            if (!results[2]) return '';
+            return decodeURIComponent(results[2].replace(/\+/g, ' '));
+        }
+        var connections = getParameterByName("connections") || "10"
+
+        var w = new Worker('/speedtest/speedtest_worker.js')
+        var interval = setInterval(function () { w.postMessage('status') }, 100)
+        w.onmessage = function (event) {
+            var data = event.data.split(';')
+            var status = Number(data[0])
+            var dl = document.getElementById('download')
+            var ul = document.getElementById('upload')
+            var ping = document.getElementById('ping')
+            var ip = document.getElementById('ip')
+            var jitter = document.getElementById('jitter')
+            dl.className = status === 1 ? 'flash' : ''
+            ping.className = status === 2 ? 'flash' : ''
+            jitter.className = status === 3 ? 'flash' : ''
+            if (status >= 4) {
+                clearInterval(interval)
+            }
+            dl.textContent = data[1]
+            //ul.textContent = data[2]
+            ping.textContent = data[3]
+            jitter.textContent = data[5]
+            //ip.textContent = 'Your IP: ' + data[4]
+        }
+        var options = {
+            "test_order": "PD",
+            "url_dl": "/speedtest/garbage",
+            "url_ul": "/speedtest/empty",
+            "url_ping": "/speedtest/empty",
+            "time_dl": "100",
+            "time_ul": "150",
+            "count_ping": "15",
+            "xhr_dlMultistream": connections
+        }
+        w.postMessage('start ' + JSON.stringify(options))
+    </script>
+</body>
+</html>

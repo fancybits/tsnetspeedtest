@@ -1,13 +1,15 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/tls"
+	"embed"
 	"flag"
-	"fmt"
-	"html"
+	"io"
+	"io/fs"
 	"log"
 	"net/http"
-	"strings"
+	"strconv"
 
 	"tailscale.com/tsnet"
 )
@@ -15,6 +17,12 @@ import (
 var (
 	addr = flag.String("addr", ":80", "address to listen on")
 )
+
+//go:embed static/*.html
+var staticHtml embed.FS
+
+//go:embed speedtest/*.js
+var speedtestWorkerJs embed.FS
 
 func main() {
 	flag.Parse()
@@ -36,21 +44,47 @@ func main() {
 			GetCertificate: lc.GetCertificate,
 		})
 	}
-	log.Fatal(http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		who, err := lc.WhoIs(r.Context(), r.RemoteAddr)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		fmt.Fprintf(w, "<html><body><h1>Hello, world!</h1>\n")
-		fmt.Fprintf(w, "<p>You are <b>%s</b> from <b>%s</b> (%s)</p>",
-			html.EscapeString(who.UserProfile.LoginName),
-			html.EscapeString(firstLabel(who.Node.ComputedName)),
-			r.RemoteAddr)
-	})))
-}
 
-func firstLabel(s string) string {
-	s, _, _ = strings.Cut(s, ".")
-	return s
+	mux := http.NewServeMux()
+
+	// For the static HTML content
+	staticFs, err := fs.Sub(staticHtml, "static")
+	if err != nil {
+		log.Fatal(err)
+	}
+	mux.Handle("/", http.FileServer(http.FS(staticFs)))
+
+	// For the speedtest JavaScript files
+	speedtestFs, err := fs.Sub(speedtestWorkerJs, "speedtest")
+	if err != nil {
+		log.Fatal(err)
+	}
+	mux.Handle("/speedtest/", http.StripPrefix("/speedtest/", http.FileServer(http.FS(speedtestFs))))
+
+	mux.HandleFunc("/speedtest/garbage", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Description", "File Transfer")
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", "attachment; filename=random.dat")
+		w.Header().Set("Content-Transfer-Encoding", "binary")
+
+		ckSize, _ := strconv.ParseInt(r.URL.Query().Get("ckSize"), 10, 64)
+		if ckSize == 0 || ckSize > 2048 {
+			ckSize = 4
+		}
+
+		data := make([]byte, 1024*1024)
+		io.ReadAtLeast(rand.Reader, data, len(data))
+		for ckSize > 0 {
+			_, err := w.Write(data)
+			if err != nil {
+				break
+			}
+			ckSize--
+		}
+	})
+
+	mux.HandleFunc("/speedtest/empty", func(w http.ResponseWriter, r *http.Request) {
+	})
+
+	log.Fatal(http.Serve(ln, mux))
 }
