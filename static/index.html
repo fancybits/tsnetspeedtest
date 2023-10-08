@@ -67,32 +67,45 @@
         var w = new Worker('/speedtest/speedtest_worker.js')
         var interval = setInterval(function () { w.postMessage('status') }, 100)
         w.onmessage = function (event) {
-            var data = event.data.split(';')
-            var status = Number(data[0])
+            let status;
+            if (event.data[0] == '{') {
+                status = JSON.parse(event.data)
+            } else {
+                var data = event.data.split(';')
+                status = {
+                    testState: Number(data[0]),
+                    dlStatus: data[1],
+                    ulStatus: data[2],
+                    pingStatus: data[3],
+                    clientIp: data[4],
+                    jitterStatus: data[5],
+                }
+            }
             var dl = document.getElementById('download')
             var ul = document.getElementById('upload')
             var ping = document.getElementById('ping')
             var ip = document.getElementById('ip')
             var jitter = document.getElementById('jitter')
-            dl.className = status === 1 ? 'flash' : ''
-            ping.className = status === 2 ? 'flash' : ''
-            jitter.className = status === 3 ? 'flash' : ''
-            if (status >= 4) {
+            dl.className = status.testState === 1 ? 'flash' : ''
+            ping.className = status.testState === 2 ? 'flash' : ''
+            jitter.className = status.testState === 3 ? 'flash' : ''
+            if (status.testState >= 4) {
                 clearInterval(interval)
             }
-            dl.textContent = data[1]
+            dl.textContent = status.dlStatus
             //ul.textContent = data[2]
-            ping.textContent = data[3]
-            jitter.textContent = data[5]
+            ping.textContent = status.pingStatus
+            jitter.textContent = status.jitterStatus
             //ip.textContent = 'Your IP: ' + data[4]
         }
         var options = {
             "test_order": "PD",
+            "time_auto": "false",
             "url_dl": "/speedtest/garbage",
             "url_ul": "/speedtest/empty",
             "url_ping": "/speedtest/empty",
-            "time_dl": "100",
-            "time_ul": "150",
+            "time_dl_max": "100",
+            "time_ul_max": "0",
             "count_ping": "15",
             "xhr_dlMultistream": connections
         }

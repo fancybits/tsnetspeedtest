@@ -69,6 +69,11 @@ func main() {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("Content-Disposition", "attachment; filename=random.dat")
 		w.Header().Set("Content-Transfer-Encoding", "binary")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0, s-maxage=0")
+		w.Header().Set("Cache-Control", "post-check=0, pre-check=0")
+		w.Header().Set("Pragma", "no-cache")
 
 		ckSize, _ := strconv.ParseInt(r.URL.Query().Get("ckSize"), 10, 64)
 		if ckSize == 0 || ckSize > 2048 {
