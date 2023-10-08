@@ -1,0 +1,6 @@
+# tsnetspeedtest
+
+## Running
+
+    go run .
+
