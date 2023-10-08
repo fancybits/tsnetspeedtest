@@ -99,15 +99,16 @@
             //ip.textContent = 'Your IP: ' + data[4]
         }
         var options = {
-            "test_order": "PD",
-            "time_auto": "false",
-            "url_dl": "/speedtest/garbage",
-            "url_ul": "/speedtest/empty",
-            "url_ping": "/speedtest/empty",
-            "time_dl_max": "100",
-            "time_ul_max": "0",
-            "count_ping": "15",
-            "xhr_dlMultistream": connections
+            test_order: "PD",
+            time_auto: "false",
+            url_dl: "/speedtest/garbage",
+            url_ul: "/speedtest/empty",
+            url_ping: "/speedtest/empty",
+            time_dl_max: 100,
+            time_ul_max: 0,
+            count_ping: 15,
+            garbagePhp_chunkSize: 10,
+            xhr_dlMultistream: connections
         }
         w.postMessage('start ' + JSON.stringify(options))
     </script>
