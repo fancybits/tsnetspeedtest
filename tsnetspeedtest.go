@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"embed"
@@ -11,11 +12,13 @@ import (
 	"net/http"
 	"strconv"
 
+	"golang.org/x/sync/errgroup"
 	"tailscale.com/tsnet"
 )
 
 var (
-	addr = flag.String("addr", ":80", "address to listen on")
+	addr  = flag.String("addr", ":80", "tailscale address to listen on")
+	saddr = flag.String("saddr", ":5080", "standard address to listen on")
 )
 
 //go:embed static/*.html
@@ -85,6 +88,15 @@ func main() {
 
 	mux.HandleFunc("/speedtest/empty", func(w http.ResponseWriter, r *http.Request) {
 	})
+	grp, _ := errgroup.WithContext(context.Background())
 
-	log.Fatal(http.Serve(ln, mux))
+	grp.Go(func() error {
+		return http.Serve(ln, mux)
+	})
+
+	grp.Go(func() error {
+		return http.ListenAndServe(*saddr, mux)
+	})
+
+	log.Fatal(grp.Wait())
 }
