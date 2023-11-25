@@ -6,11 +6,15 @@ import (
 	"crypto/tls"
 	"embed"
 	"flag"
+	"fmt"
 	"io"
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 
 	"golang.org/x/sync/errgroup"
 	"tailscale.com/tsnet"
@@ -19,6 +23,7 @@ import (
 var (
 	addr  = flag.String("addr", ":80", "tailscale address to listen on")
 	saddr = flag.String("saddr", ":5080", "standard address to listen on")
+	pcap  = flag.String("pcap", "", "pcap file to write to")
 )
 
 //go:embed static/*.html
@@ -28,6 +33,19 @@ var staticHtml embed.FS
 var speedtestWorkerJs embed.FS
 
 func main() {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	defer cancel(nil)
+
+	// Listen for signals
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	// Wait for a signal
+	go func() {
+		sig := <-c
+		cancel(fmt.Errorf("received signal: %s", sig))
+	}()
+
 	flag.Parse()
 	s := new(tsnet.Server)
 	defer s.Close()
@@ -46,6 +64,13 @@ func main() {
 		ln = tls.NewListener(ln, &tls.Config{
 			GetCertificate: lc.GetCertificate,
 		})
+	}
+
+	if *pcap != "" {
+		err := s.CapturePcap(ctx, *pcap)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	mux := http.NewServeMux()
@@ -93,14 +118,19 @@ func main() {
 
 	mux.HandleFunc("/speedtest/empty", func(w http.ResponseWriter, r *http.Request) {
 	})
-	grp, _ := errgroup.WithContext(context.Background())
+
+	grp, _ := errgroup.WithContext(ctx)
 
 	grp.Go(func() error {
-		return http.Serve(ln, mux)
+		server := &http.Server{Handler: mux}
+		context.AfterFunc(ctx, func() { server.Close() })
+		return server.Serve(ln)
 	})
 
 	grp.Go(func() error {
-		return http.ListenAndServe(*saddr, mux)
+		server := &http.Server{Addr: *saddr, Handler: mux}
+		context.AfterFunc(ctx, func() { server.Close() })
+		return server.ListenAndServe()
 	})
 
 	log.Fatal(grp.Wait())
