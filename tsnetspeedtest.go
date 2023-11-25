@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"embed"
 	"flag"
-	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -33,18 +32,8 @@ var staticHtml embed.FS
 var speedtestWorkerJs embed.FS
 
 func main() {
-	ctx, cancel := context.WithCancelCause(context.Background())
-	defer cancel(nil)
-
-	// Listen for signals
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
-	// Wait for a signal
-	go func() {
-		sig := <-c
-		cancel(fmt.Errorf("received signal: %s", sig))
-	}()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	flag.Parse()
 	s := new(tsnet.Server)
