@@ -1,0 +1,10 @@
+tsnetspeedtest-linux-arm64*
+tsnetspeedtest-linux-x86_64*
+tsnetspeedtest-macos*
+tsnetspeedtest-macos-arm64*
+tsnetspeedtest-macos-x86_64*
+tsnetspeedtest-windows-arm64.exe*
+tsnetspeedtest-windows-x86_64.exe*
+.DS_Store
+*.pcap
+*.pcap.gz
